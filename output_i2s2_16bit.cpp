@@ -236,7 +236,10 @@ void AudioOutputI2S2_16bit::config_i2s(void)
 	//I2S2_RCSR = (1<<25); //Reset
 	I2S2_RCR1 = I2S_RCR1_RFW(1);
 	I2S2_RCR2 = I2S_RCR2_SYNC(rsync) | I2S_RCR2_BCP  // sync=0; rx is async;
-		| (I2S_RCR2_BCD | I2S_RCR2_DIV((1)) | I2S_RCR2_MSEL(1));
+		| (I2S_RCR2_BCD |
+		   //I2S_RCR2_DIV((1))	//32 bit samples
+		   I2S_RCR2_DIV((3))	//16 bit samples
+		   | I2S_RCR2_MSEL(1));
 	I2S2_RCR3 = I2S_RCR3_RCE;
 	
 	//original configuration for 32 bit
