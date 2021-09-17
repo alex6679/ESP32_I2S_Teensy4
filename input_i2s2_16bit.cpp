@@ -50,16 +50,18 @@ DMAChannel AsyncAudioInputI2S2_16bitslave::asyncDma(false);
 
 void AudioInputI2S2_16bit::begin(void)
 {
+
 	dma.begin(true); // Allocate the DMA channel first
 
 	//block_left_1st = NULL;
 	//block_right_1st = NULL;
 
+	CORE_PIN5_CONFIG = 2;  //EMC_08, 2=SAI2_RX_DATA, page 434 //IOMUXC_SW_MUX_CTL_PAD_GPIO_EMC_08
+	IOMUXC_SAI2_RX_DATA0_SELECT_INPUT = 0; // 0=GPIO_EMC_08_ALT2, page 876
+	
 	// TODO: should we set & clear the I2S_RCSR_SR bit here?
 	AudioOutputI2S2_16bit::config_i2s();
 
-	CORE_PIN5_CONFIG = 2;  //EMC_08, 2=SAI2_RX_DATA, page 434
-	IOMUXC_SAI2_RX_DATA0_SELECT_INPUT = 0; // 0=GPIO_EMC_08_ALT2, page 876
 
 	dma.TCD->SADDR = (void *)((uint32_t)&I2S2_RDR0+2);
 	dma.TCD->SOFF = 0;
@@ -74,10 +76,10 @@ void AudioInputI2S2_16bit::begin(void)
 	dma.TCD->CSR = DMA_TCD_CSR_INTHALF | DMA_TCD_CSR_INTMAJOR;
 	dma.triggerAtHardwareEvent(DMAMUX_SOURCE_SAI2_RX);
 	dma.enable();
-
+	
 	I2S2_RCSR = I2S_RCSR_RE | I2S_RCSR_BCE | I2S_RCSR_FRDE | I2S_RCSR_FR; // page 2099
 	I2S2_TCSR |= I2S_TCSR_TE | I2S_TCSR_BCE; // page 2087
-
+	
 	update_responsibility = update_setup();
 	dma.attachInterrupt(isr);
 }
@@ -182,15 +184,18 @@ void AudioInputI2S2_16bit::update(void)
 
 void AudioInputI2S2_16bitslave::begin(void)
 {
+	uint32_t softwareReset=((uint32_t)1<<24);
+	I2S2_RCSR |= softwareReset;
 	dma.begin(true); // Allocate the DMA channel first
 
 	//block_left_1st = NULL;
 	//block_right_1st = NULL;
 
-	AudioOutputI2S2_16bitslave::config_i2s();
-
 	CORE_PIN5_CONFIG = 2;  //EMC_08, 2=SAI2_RX_DATA, page 434
 	IOMUXC_SAI2_RX_DATA0_SELECT_INPUT = 0; // 0=GPIO_EMC_08_ALT2, page 876
+
+	AudioOutputI2S2_16bitslave::config_i2s();
+
 
 	dma.TCD->SADDR = (void *)((uint32_t)&I2S2_RDR0+2);
 	dma.TCD->SOFF = 0;
@@ -206,6 +211,7 @@ void AudioInputI2S2_16bitslave::begin(void)
 	dma.triggerAtHardwareEvent(DMAMUX_SOURCE_SAI2_RX);
 	dma.enable();
 	
+	
 	I2S2_RCSR = I2S_RCSR_RE | I2S_RCSR_BCE | I2S_RCSR_FRDE | I2S_RCSR_FR;
 	update_responsibility = update_setup();
 	dma.attachInterrupt(isr);
@@ -216,13 +222,16 @@ void AudioInputI2S2_16bitslave::begin(void)
 
 void AsyncAudioInputI2S2_16bitslave::begin()
 {
+	uint32_t softwareReset=((uint32_t)1<<24);
+	I2S2_RCSR |= softwareReset;
+
 	asyncDma.begin(true); // Allocate the DMA channel first
-
-
-	AudioOutputI2S2_16bitslave::config_i2s();
 
 	CORE_PIN5_CONFIG = 2;  //EMC_08, 2=SAI2_RX_DATA, page 434
 	IOMUXC_SAI2_RX_DATA0_SELECT_INPUT = 0; // 0=GPIO_EMC_08_ALT2, page 876
+
+	AudioOutputI2S2_16bitslave::config_i2s();
+
 
 	asyncDma.TCD->SADDR = (void *)((uint32_t)&I2S2_RDR0+2);
 	asyncDma.TCD->SOFF = 0;
