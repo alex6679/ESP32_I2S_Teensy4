@@ -184,8 +184,7 @@ void AudioInputI2S2_16bit::update(void)
 
 void AudioInputI2S2_16bitslave::begin(void)
 {
-	uint32_t softwareReset=((uint32_t)1<<24);
-	I2S2_RCSR |= softwareReset;
+
 	dma.begin(true); // Allocate the DMA channel first
 
 	//block_left_1st = NULL;
@@ -212,7 +211,8 @@ void AudioInputI2S2_16bitslave::begin(void)
 	dma.enable();
 	
 	
-	I2S2_RCSR = I2S_RCSR_RE | I2S_RCSR_BCE | I2S_RCSR_FRDE | I2S_RCSR_FR;
+	I2S2_RCSR = I2S_RCSR_RE | I2S_RCSR_BCE | I2S_RCSR_FRDE | I2S_RCSR_FR; // page 2099
+	I2S2_TCSR |= I2S_TCSR_TE | I2S_TCSR_BCE; // page 2087
 	update_responsibility = update_setup();
 	dma.attachInterrupt(isr);
 
@@ -222,9 +222,7 @@ void AudioInputI2S2_16bitslave::begin(void)
 
 void AsyncAudioInputI2S2_16bitslave::begin()
 {
-	uint32_t softwareReset=((uint32_t)1<<24);
-	I2S2_RCSR |= softwareReset;
-
+	
 	asyncDma.begin(true); // Allocate the DMA channel first
 
 	CORE_PIN5_CONFIG = 2;  //EMC_08, 2=SAI2_RX_DATA, page 434
@@ -247,7 +245,8 @@ void AsyncAudioInputI2S2_16bitslave::begin()
 	asyncDma.triggerAtHardwareEvent(DMAMUX_SOURCE_SAI2_RX);
 	asyncDma.enable();
 	
-	I2S2_RCSR = I2S_RCSR_RE | I2S_RCSR_BCE | I2S_RCSR_FRDE | I2S_RCSR_FR;
+	I2S2_RCSR = I2S_RCSR_RE | I2S_RCSR_BCE | I2S_RCSR_FRDE | I2S_RCSR_FR; // page 2099
+	I2S2_TCSR |= I2S_TCSR_TE | I2S_TCSR_BCE; // page 2087
 	asyncDma.attachInterrupt(isrResample);
 
 }
