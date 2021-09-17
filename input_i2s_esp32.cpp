@@ -37,6 +37,17 @@ uint16_t AudioInputI2S_ESP32::block_offset = 0;
 bool AudioInputI2S_ESP32::update_responsibility = false;
 DMAChannel AudioInputI2S_ESP32::dma(false);
 
+// ============== needed for resampling
+const float toFloatAudio= (float)1./pow(2., 15.); //(float)1./pow(2., 31.);
+constexpr int32_t noSamplerPerIsr=AUDIO_BLOCK_SAMPLES/2;
+AsyncAudioInputI2Sslave_esp32::FrequencyM AsyncAudioInputI2Sslave_esp32::frequencyM;	
+float* AsyncAudioInputI2Sslave_esp32::sampleBuffer[] ={NULL, NULL} ;
+int32_t AsyncAudioInputI2Sslave_esp32::sampleBufferLength = 0;
+volatile int32_t AsyncAudioInputI2Sslave_esp32::buffer_offset=0;
+volatile int32_t AsyncAudioInputI2Sslave_esp32::resample_offset=0;
+DMAChannel AsyncAudioInputI2Sslave_esp32::asyncDma(false);
+//======================================
+
 void AudioInputI2S_ESP32::begin(void)
 {
 	dma.begin(true); // Allocate the DMA channel first
@@ -243,3 +254,97 @@ void AudioInputI2Sslave_ESP32::begin(void)
 #endif
 }
 
+
+#if defined(__IMXRT1062__)
+
+void AsyncAudioInputI2Sslave_esp32::begin()
+{
+	asyncDma.begin(true); // Allocate the DMA channel first
+
+	AudioOutputI2Sslave_ESP32::config_i2s();
+
+	CORE_PIN8_CONFIG  = 3;  //1:RX_DATA0
+	IOMUXC_SAI1_RX_DATA0_SELECT_INPUT = 2;
+
+	//Should all 32bit be read from the i2s input? But i2s_rx_buffer would need to be larger, or the asyncDma transfer is called at a higher frequency?
+	asyncDma.TCD->SADDR = (void *)((uint32_t)&I2S1_RDR0 + 2);
+	asyncDma.TCD->SOFF = 0;
+	asyncDma.TCD->ATTR = DMA_TCD_ATTR_SSIZE(1) | DMA_TCD_ATTR_DSIZE(1);
+	asyncDma.TCD->NBYTES_MLNO = 2;
+	asyncDma.TCD->SLAST = 0;
+	asyncDma.TCD->DADDR = i2s_rx_buffer;
+	asyncDma.TCD->DOFF = 2;
+	asyncDma.TCD->CITER_ELINKNO = sizeof(i2s_rx_buffer) / 2;
+	asyncDma.TCD->DLASTSGA = -sizeof(i2s_rx_buffer);
+	asyncDma.TCD->BITER_ELINKNO = sizeof(i2s_rx_buffer) / 2;
+	asyncDma.TCD->CSR = DMA_TCD_CSR_INTHALF | DMA_TCD_CSR_INTMAJOR;
+	asyncDma.triggerAtHardwareEvent(DMAMUX_SOURCE_SAI1_RX);
+	asyncDma.enable();
+
+	I2S1_RCSR = 0;
+	I2S1_RCSR = I2S_RCSR_RE | I2S_RCSR_BCE | I2S_RCSR_FRDE | I2S_RCSR_FR;
+	asyncDma.attachInterrupt(isrResample);
+
+}
+
+void AsyncAudioInputI2Sslave_esp32::setResampleBuffer(float** buffer, int32_t bufferLength){
+	sampleBuffer[0] = buffer[0];
+	sampleBuffer[1] = buffer[1];
+	sampleBufferLength = bufferLength;
+}
+void AsyncAudioInputI2Sslave_esp32::setFrequencyMeasurment(AsyncAudioInputI2Sslave_esp32::FrequencyM fm){
+	frequencyM=fm;
+}
+
+void AsyncAudioInputI2Sslave_esp32::isrResample(void)
+{
+	if (frequencyM){
+		frequencyM();
+	}
+	asyncDma.clearInterrupt();
+
+	uint32_t daddr;
+	const int16_t *src, *end;
+
+	daddr = (uint32_t)(asyncDma.TCD->DADDR);
+
+	if (daddr < (uint32_t)i2s_rx_buffer + sizeof(i2s_rx_buffer) / 2) {
+		// DMA is receiving to the first half of the buffer
+		// need to remove data from the second half
+		src = (int16_t *)&i2s_rx_buffer[AUDIO_BLOCK_SAMPLES/2];
+		end = (int16_t *)&i2s_rx_buffer[AUDIO_BLOCK_SAMPLES];
+	} else {
+		// DMA is receiving to the second half of the buffer
+		// need to remove data from the first half
+		src = (int16_t *)&i2s_rx_buffer[0];
+		end = (int16_t *)&i2s_rx_buffer[AUDIO_BLOCK_SAMPLES/2];
+	}
+	int32_t distToResampleOffset = buffer_offset >= resample_offset ? resample_offset + (sampleBufferLength-buffer_offset) : resample_offset-buffer_offset;
+	arm_dcache_delete((void*)src, sizeof(i2s_rx_buffer) / 2);
+	if (sampleBuffer[0] != NULL && sampleBuffer[1] != NULL && distToResampleOffset > noSamplerPerIsr) {
+
+		float* dest_left = sampleBuffer[0]+buffer_offset;
+		float* dest_right = sampleBuffer[1]+buffer_offset;
+		do {
+			*dest_left++ = *src++ * toFloatAudio;	//toFloatAudio is currently the factor from 16bit integer to 32bit floating point audio samples
+			*dest_right++ = *src++ * toFloatAudio;
+
+			buffer_offset++;
+			if (buffer_offset >= sampleBufferLength){
+				buffer_offset=0;
+				dest_left = sampleBuffer[0];
+				dest_right = sampleBuffer[1];
+			}
+		} while (src < end);
+	}
+}
+int32_t AsyncAudioInputI2Sslave_esp32::getBufferOffset(){
+	return buffer_offset;
+}
+int32_t AsyncAudioInputI2Sslave_esp32::getNumberOfSamplesPerIsr(){
+	return noSamplerPerIsr;
+}
+void AsyncAudioInputI2Sslave_esp32::setResampleOffset(int32_t offset){
+	resample_offset = offset;
+}
+#endif

@@ -28,8 +28,9 @@ void Plotter::update(void) {
                 if(dataPtr[j]){
                     if(i%_step==0){
                         if(Serial){
-                            Serial.print(*dataPtr[j]);                  
-                            Serial.print(" ");
+							Serial.print(j == 0 ? "Left:" : "Right:");
+							Serial.print(*dataPtr[j]);
+							Serial.print(" ");
                         }
                     }
                     ++dataPtr[j];

@@ -58,4 +58,37 @@ public:
 	friend void dma_ch1_isr(void);
 };
 
+
+
+#if defined(__IMXRT1062__)	
+class AsyncAudioInputI2Sslave_esp32
+{
+public:
+	AsyncAudioInputI2Sslave_esp32() { begin(); }
+	void begin();
+
+	//interface required by AsyncAudioInput: 
+	///@param buffer array of arrays, outer array: array of channels, inner arrays contain the samples of an channel
+	static void setResampleBuffer(float** buffer, int32_t bufferLength);
+
+	constexpr static int32_t getNumberOfChannels() {return 2;}	
+    typedef void (*FrequencyM) ();
+	static void setFrequencyMeasurment(FrequencyM frequencyM);
+	static int32_t getBufferOffset();
+	static int32_t getNumberOfSamplesPerIsr();
+	static void setResampleOffset(int32_t offset);
+	//======================================
+	
+private:
+	static DMAChannel asyncDma;
+	static void isrResample(void);
+	
+	static volatile int32_t buffer_offset;
+	static volatile int32_t resample_offset;
+	static float* sampleBuffer[2];
+	static int32_t sampleBufferLength;
+	static FrequencyM frequencyM;	
+};
+#endif
+
 #endif

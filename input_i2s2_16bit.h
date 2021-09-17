@@ -24,54 +24,68 @@
  * THE SOFTWARE.
  */
 
-#ifndef output_i2s_esp32_h_
-#define output_i2s_esp32_h_
+#if defined(__IMXRT1052__) || defined(__IMXRT1062__)
+#ifndef _input_i2s2_16bit_h_
+#define _input_i2s2_16bit_h_
 
 #include "Arduino.h"
 #include "AudioStream.h"
 #include "DMAChannel.h"
 
-class AudioOutputI2S_ESP32 : public AudioStream
+class AudioInputI2S2_16bit : public AudioStream
 {
 public:
-	AudioOutputI2S_ESP32(void) : AudioStream(2, inputQueueArray) { begin(); }
+	AudioInputI2S2_16bit(void) : AudioStream(0, NULL) { begin(); }
 	virtual void update(void);
 	void begin(void);
-	friend class AudioInputI2S_ESP32;
-#if defined(__IMXRT1062__)
-	friend class AudioOutputI2SQuad;
-	friend class AudioInputI2SQuad;
-	friend class AudioOutputI2SHex;
-	friend class AudioInputI2SHex;
-	friend class AudioOutputI2SOct;
-	friend class AudioInputI2SOct;
-#endif
 protected:
-	AudioOutputI2S_ESP32(int dummy): AudioStream(2, inputQueueArray) {} // to be used only inside AudioOutputI2Sslave_ESP32 !!
-	static void config_i2s(void);
-	static audio_block_t *block_left_1st;
-	static audio_block_t *block_right_1st;
+	AudioInputI2S2_16bit(int dummy): AudioStream(0, NULL) {} // to be used only inside AudioInputI2Sslave !!
 	static bool update_responsibility;
 	static DMAChannel dma;
 	static void isr(void);
 private:
-	static audio_block_t *block_left_2nd;
-	static audio_block_t *block_right_2nd;
-	static uint16_t block_left_offset;
-	static uint16_t block_right_offset;
-	audio_block_t *inputQueueArray[2];
+	static audio_block_t *block_left;
+	static audio_block_t *block_right;
+	static uint16_t block_offset;
 };
 
 
-class AudioOutputI2Sslave_ESP32 : public AudioOutputI2S_ESP32
+class AudioInputI2S2_16bitslave : public AudioInputI2S2_16bit
 {
 public:
-	AudioOutputI2Sslave_ESP32(void) : AudioOutputI2S_ESP32(0) { begin(); } ;
+	AudioInputI2S2_16bitslave(void) : AudioInputI2S2_16bit(0) { begin(); }
 	void begin(void);
-	friend class AudioInputI2Sslave_ESP32;
-	friend void dma_ch0_isr(void);
-protected:
-	static void config_i2s(void);
+	friend void dma_ch1_isr(void);
+};
+
+class AsyncAudioInputI2S2_16bitslave
+{
+public:
+	AsyncAudioInputI2S2_16bitslave() { begin(); }
+	void begin();
+
+	//interface required by AsyncAudioInput: 
+	///@param buffer array of arrays, outer array: array of channels, inner arrays contain the samples of an channel
+	static void setResampleBuffer(float** buffer, int32_t bufferLength);
+
+	constexpr static int32_t getNumberOfChannels() {return 2;}	
+    typedef void (*FrequencyM) ();
+	static void setFrequencyMeasurment(FrequencyM frequencyM);
+	static int32_t getBufferOffset();
+	static int32_t getNumberOfSamplesPerIsr();
+	static void setResampleOffset(int32_t offset);
+	//======================================
+	
+private:
+	static DMAChannel asyncDma;
+	static void isrResample(void);
+	
+	static volatile int32_t buffer_offset;
+	static volatile int32_t resample_offset;
+	static float* sampleBuffer[2];
+	static int32_t sampleBufferLength;
+	static FrequencyM frequencyM;	
 };
 
 #endif
+#endif //#if defined(__IMXRT1052__) || defined(__IMXRT1062__)

@@ -24,38 +24,55 @@
  * THE SOFTWARE.
  */
 
-#ifndef _input_i2s_esp32_h_
-#define _input_i2s_esp32_h_
+#ifndef output_i2s_esp32_h_
+#define output_i2s_esp32_h_
 
 #include "Arduino.h"
 #include "AudioStream.h"
 #include "DMAChannel.h"
 
-class AudioInputI2S_ESP32 : public AudioStream
+class AudioOutputI2S_ESP32 : public AudioStream
 {
 public:
-	AudioInputI2S_ESP32(void) : AudioStream(0, NULL) { begin(); }
+	AudioOutputI2S_ESP32(void) : AudioStream(2, inputQueueArray) { begin(); }
 	virtual void update(void);
 	void begin(void);
-	uint32_t getCounter() const;
-protected:	
-	AudioInputI2S_ESP32(int dummy): AudioStream(0, NULL) {} // to be used only inside AudioInputI2Sslave_ESP32 !!
+	friend class AudioInputI2S_ESP32;
+#if defined(__IMXRT1062__)
+	friend class AudioOutputI2SQuad;
+	friend class AudioInputI2SQuad;
+	friend class AudioOutputI2SHex;
+	friend class AudioInputI2SHex;
+	friend class AudioOutputI2SOct;
+	friend class AudioInputI2SOct;
+#endif
+protected:
+	AudioOutputI2S_ESP32(int dummy): AudioStream(2, inputQueueArray) {} // to be used only inside AudioOutputI2Sslave_ESP32 !!
+	static void config_i2s(void);
+	static audio_block_t *block_left_1st;
+	static audio_block_t *block_right_1st;
 	static bool update_responsibility;
 	static DMAChannel dma;
 	static void isr(void);
 private:
-	static audio_block_t *block_left;
-	static audio_block_t *block_right;
-	static uint16_t block_offset;
+	static audio_block_t *block_left_2nd;
+	static audio_block_t *block_right_2nd;
+	static uint16_t block_left_offset;
+	static uint16_t block_right_offset;
+	audio_block_t *inputQueueArray[2];
 };
 
 
-class AudioInputI2Sslave_ESP32 : public AudioInputI2S_ESP32
+class AudioOutputI2Sslave_ESP32 : public AudioOutputI2S_ESP32
 {
 public:
-	AudioInputI2Sslave_ESP32(void) : AudioInputI2S_ESP32(0) { begin(); }
+	AudioOutputI2Sslave_ESP32(void) : AudioOutputI2S_ESP32(0) { begin(); } ;
 	void begin(void);
-	friend void dma_ch1_isr(void);
+	friend class AudioInputI2Sslave_ESP32;
+	friend class AsyncAudioInputI2Sslave_esp32;
+	friend void dma_ch0_isr(void);
+protected:
+	static void config_i2s(void);
 };
 
 #endif
