@@ -1,0 +1,1 @@
+The example shows how audio can be streamed from the ESP32 to the Teensy 4 via I2s. The T4 is I2S master and the ESP32 is I2S slave. However, the received audio is distorted and there seems to be a problem if the bit clock and frame clock are not in sync with the internal master clock of the ESP32.
