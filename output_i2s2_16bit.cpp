@@ -219,8 +219,8 @@ void AudioOutputI2S2_16bit::config_i2s(void)
 	CORE_PIN4_CONFIG  = 2;  //EMC_06, 2=SAI2_TX_BCLK
 	CORE_PIN3_CONFIG  = 2;  //EMC_05, 2=SAI2_TX_SYNC, page 429
 
-	int rsync = 1;
-	int tsync = 0;
+	int rsync = 0;
+	int tsync = 1;
 
 	I2S2_TMR = 0;
 	//I2S2_TCSR = (1<<25); //Reset
@@ -304,7 +304,7 @@ void AudioOutputI2S2_16bitslave::config_i2s(void)
 	CCM_CCGR5 |= CCM_CCGR5_SAI2(CCM_CCGR_ON);
 
 	if (I2S2_TCSR & I2S_TCSR_TE) return;
-	if (I2S2_TCSR & I2S_RCSR_RE) return;
+	if (I2S2_RCSR & I2S_RCSR_RE) return;
 
 
 	CORE_PIN4_CONFIG  = 2;  //2:TX_BCLK
