@@ -311,8 +311,8 @@ void AudioOutputI2S2_16bitslave::config_i2s(void)
 
 	CCM_CCGR5 |= CCM_CCGR5_SAI2(CCM_CCGR_ON);
 
-	I2S2_TCSR&=~I2S_TCSR_TE;
-	I2S2_RCSR&=~I2S_RCSR_RE;
+	if (I2S2_TCSR & I2S_TCSR_TE) return;
+	if (I2S2_RCSR & I2S_RCSR_RE) return;
 	
 
 	CORE_PIN4_CONFIG  = 2;  //2:TX_BCLK
